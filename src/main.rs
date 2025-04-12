@@ -3,6 +3,7 @@
 // too noisy
 #![allow(unsafe_op_in_unsafe_fn)]
 
+use docrust::{BPoint, b_contains_simd_ultra};
 use std::arch::x86_64::{
     __m256d, __m256i, _mm256_broadcast_sd, _mm256_cmpeq_epi64, _mm256_or_pd, _mm256_or_si256,
     _mm256_testz_pd, _mm256_testz_ps, _mm256_testz_si256,
@@ -71,9 +72,4 @@ fn main() {
     let found = unsafe { contains_simd(&data, value_not_exists) };
     // let found = unsafe { contains_auto(&data, value_not_exists) };
     println!("found {found}")
-
-    // let needle = Point(black_box(5), black_box(8));
-    // println!("{:064b}", needle.0);
-    // println!("{:064b}", needle.1);
-    // println!("{:064b}", needle.as_u64());
 }
