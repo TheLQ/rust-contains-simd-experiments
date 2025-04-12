@@ -1,0 +1,36 @@
+<pre style="color:#bbb;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word"><span style="color:#ffff55"></span><span style="color:#0a0">docrust::check_slice</span>:
+<span style="color:#0aa">		// /home/desk/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/iter/macros.rs : 307</span>
+		<span style="color:#ff5555">while let Some(x) = self.next() {</span>
+	<span style="color:#5555ff">shl</span> rsi, 3
+<span style="color:#ffff55">.LBB4_1</span>:
+	<span style="color:#5555ff">mov</span> rax, rsi
+<span style="color:#0aa">		// /home/desk/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/non_null.rs : 1620</span>
+		<span style="color:#ff5555">self.as_ptr() == other.as_ptr()</span>
+	<span style="color:#5555ff">test</span> rsi, rsi
+<span style="color:#0aa">		// /home/desk/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/iter/macros.rs : 179</span>
+		<span style="color:#ff5555">if ptr == crate::intrinsics::transmute::&lt;$ptr, NonNull&lt;T&gt;&gt;(end_or_len) {</span>
+	<span style="color:#5555ff">je</span> <span style="color:#ffff55">.LBB4_4</span>
+	<span style="color:#5555ff">mov</span> r8, rdi
+<span style="color:#0aa">		// /home/desk/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/non_null.rs : 616</span>
+		<span style="color:#ff5555">unsafe { NonNull { pointer: intrinsics::offset(self.as_ptr(), count) } }</span>
+	<span style="color:#5555ff">add</span> rdi, 8
+<span style="color:#0aa">		// /home/desk/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/iter/macros.rs : 308</span>
+		<span style="color:#ff5555">if f(x) {</span>
+	<span style="color:#5555ff">lea</span> rsi, [rax - 8]
+<span style="color:#0aa">		// /home/desk/IdeaProjects/docrust/src/main.rs : 17</span>
+		<span style="color:#ff5555">struct Point(i32, i32);</span>
+	<span style="color:#5555ff">cmp</span> dword ptr [r8], edx
+<span style="color:#0aa">		// /home/desk/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/iter/macros.rs : 308</span>
+		<span style="color:#ff5555">if f(x) {</span>
+	<span style="color:#5555ff">jne</span> <span style="color:#ffff55">.LBB4_1</span>
+	<span style="color:#5555ff">cmp</span> dword ptr [r8 + 4], ecx
+	<span style="color:#5555ff">jne</span> <span style="color:#ffff55">.LBB4_1</span>
+<span style="color:#ffff55">.LBB4_4</span>:
+<span style="color:#0aa">		// /home/desk/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/non_null.rs : 1620</span>
+		<span style="color:#ff5555">self.as_ptr() == other.as_ptr()</span>
+	<span style="color:#5555ff">test</span> rax, rax
+	<span style="color:#5555ff">setne</span> al
+<span style="color:#0aa">		// /home/desk/IdeaProjects/docrust/src/main.rs : 9</span>
+		<span style="color:#ff5555">}</span>
+	<span style="color:#5555ff">ret</span>
+</pre>

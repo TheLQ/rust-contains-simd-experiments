@@ -1,0 +1,54 @@
+#![feature(avx512_target_feature)]
+
+use std::cmp::PartialEq;
+use std::hint::black_box;
+
+//#[target_feature(enable = "avx")]
+#[target_feature(enable = "avx2")]
+//#[target_feature(enable = "avx512f")]
+#[inline(never)]
+fn check_slice<T: PartialEq>(input: &[T], test: T) -> bool {
+    input.contains(&test)
+}
+
+#[derive(Clone, PartialEq)]
+struct Point(u32, u32, u32);
+
+//#[target_feature(enable = "avx2")]
+//#[target_feature(enable = "avx512f")]
+//#[target_feature(enable = "avx512f")]
+#[inline(never)]
+fn check_manually(input: &[Point], test: Point) -> bool {
+    // Make our LANE_COUNT 4x the normal lane count (aiming for 128 bit vectors).
+    // The compiler will nicely unroll it.
+    const LANE_COUNT: usize = 4 * (128 / (size_of::<Point>() * 8));
+    //const LANE_COUNT: usize = 4 * (128 / (16 * 8));
+    //    println!("size {LANE_COUNT}");
+    // SIMD
+    let mut chunks = input.chunks_exact(LANE_COUNT);
+    for chunk in &mut chunks {
+        if chunk.iter().fold(false, |acc, x| acc | (*x == test)) {
+            return true;
+        }
+    }
+    //chunks.remainder().iter().any(|x| *x == test)
+    false
+}
+
+fn main() {
+    let result = unsafe {
+        //check_slice(&vec![black_box(5u32); 9999], black_box(88))
+        check_slice(&vec![black_box(5u64); 9999], black_box(88))
+        //check_slice(&vec![black_box(5u128); 9999], black_box(88))
+
+        /*check_manually(
+           &vec![Point(black_box(5), black_box(8), black_box(8)); 9999],
+           black_box(Point(88, 88,969)),
+        )*/
+        /*check_manually(
+           &vec![Point(black_box(5), black_box(8), black_box("sfffff".into())); 9999],
+           black_box(Point(88, 88, black_box("asdf".into()))),
+        )*/
+    };
+    println!("output {result}")
+}
