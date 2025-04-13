@@ -101,6 +101,7 @@ pub unsafe fn b_contains_simd_ultra(input_raw: &[BPoint], needle_pos: BPoint) ->
             reduce_final
         };
 
+        // optionally comment u3 and u4 out for 8x wide registers
         let u3 = {
             const OFFSET: usize = 2 * 4;
             let c1 = _mm256_cmpeq_epi64(__m256i::from(chunk[OFFSET + 0]), needle);
@@ -132,6 +133,7 @@ pub unsafe fn b_contains_simd_ultra(input_raw: &[BPoint], needle_pos: BPoint) ->
         let reduce_final = _mm256_or_si256(reduce1, reduce2);
 
         let zero_flag = _mm256_testz_si256(reduce_final, reduce_final);
+        // let zero_flag = _mm256_testz_si256(reduce1, reduce1);
         if zero_flag == 0 {
             return true;
         }
