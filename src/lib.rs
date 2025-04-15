@@ -192,17 +192,17 @@ pub unsafe fn contains_simd_unrolled(input_raw: &[Point], needle_pos: Point) -> 
     false
 }
 
-fn new_data() -> Vec<Point> {
+pub fn new_data() -> Vec<Point> {
     vec![value_init().clone(); 9999]
 }
 
 /// black_box to avoid optimizing away to const tests
-fn value_init() -> Point {
+pub fn value_init() -> Point {
     Point(black_box(5), black_box(8))
 }
 
 /// black_box to avoid optimizing away to const tests
-fn value_not_exists() -> Point {
+pub fn value_not_exists() -> Point {
     Point(black_box(5), black_box(253))
 }
 
