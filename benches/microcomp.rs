@@ -1,5 +1,7 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use docrust::{BPoint, b_contains_auto, b_contains_native, b_contains_simd, b_contains_simd_ultra};
+use rust_contains_simd_experiments::{
+    Point, contains_auto, contains_simd, contains_simd_unrolled, contains_std,
+};
 use std::mem;
 
 criterion_group!(benches, micro_bench);
@@ -12,23 +14,23 @@ fn micro_bench(c: &mut Criterion) {
     group.bench_with_input("auto", &data, |b, my_data| {
         b.iter(|| test_auto(black_box(my_data)))
     });
-    group.bench_with_input("native", &data, |b, my_data| {
-        b.iter(|| test_native(black_box(my_data)))
+    group.bench_with_input("std", &data, |b, my_data| {
+        b.iter(|| test_std(black_box(my_data)))
     });
     group.bench_with_input("simd", &data, |b, my_data| {
         b.iter(|| test_simd(black_box(my_data)))
     });
-    group.bench_with_input("simd-ultra", &data, |b, my_data| {
-        b.iter(|| test_simd_ultra(black_box(my_data)))
+    group.bench_with_input("simd-unrolled", &data, |b, my_data| {
+        b.iter(|| test_simd_unrolled(black_box(my_data)))
     });
     group.finish()
 }
 
-fn test_auto(input: &[BPoint]) -> u32 {
+fn test_auto(input: &[Point]) -> u32 {
     let mut result = 0;
     for needle in NEEDLES {
         unsafe {
-            if b_contains_auto(input, needle) {
+            if contains_auto(input, needle) {
                 result += 1;
             }
         }
@@ -36,11 +38,11 @@ fn test_auto(input: &[BPoint]) -> u32 {
     result
 }
 
-fn test_native(input: &[BPoint]) -> u32 {
+fn test_std(input: &[Point]) -> u32 {
     let mut result = 0;
     for needle in NEEDLES {
         unsafe {
-            if b_contains_native(input, needle) {
+            if contains_std(input, needle) {
                 result += 1;
             }
         }
@@ -48,11 +50,11 @@ fn test_native(input: &[BPoint]) -> u32 {
     result
 }
 
-fn test_simd(input: &[BPoint]) -> u32 {
+fn test_simd(input: &[Point]) -> u32 {
     let mut result = 0;
     for needle in NEEDLES {
         unsafe {
-            if b_contains_simd(input, needle) {
+            if contains_simd(input, needle) {
                 result += 1;
             }
         }
@@ -60,11 +62,11 @@ fn test_simd(input: &[BPoint]) -> u32 {
     result
 }
 
-fn test_simd_ultra(input: &[BPoint]) -> u32 {
+fn test_simd_unrolled(input: &[Point]) -> u32 {
     let mut result = 0;
     for needle in NEEDLES {
         unsafe {
-            if b_contains_simd_ultra(input, needle) {
+            if contains_simd_unrolled(input, needle) {
                 result += 1;
             }
         }
@@ -75,22 +77,22 @@ fn test_simd_ultra(input: &[BPoint]) -> u32 {
 const DATA_SIZE: usize = 4/*Points per m256*/ * 4/*simd chunks*/ * 4/*ultra chunks*/ * 8000; // 512k
 
 const NEEDLES_SIZE: usize = 10_000;
-const NEEDLES: [BPoint; NEEDLES_SIZE] = new_needles();
+const NEEDLES: [Point; NEEDLES_SIZE] = new_needles();
 
-const GOLDEN_NEEDLE: BPoint = BPoint(389_000, 389_000);
+const GOLDEN_NEEDLE: Point = Point(389_000, 389_000);
 
-const fn new_needles() -> [BPoint; NEEDLES_SIZE] {
-    let mut res: [BPoint; NEEDLES_SIZE] = unsafe { mem::zeroed() };
+const fn new_needles() -> [Point; NEEDLES_SIZE] {
+    let mut res: [Point; NEEDLES_SIZE] = unsafe { mem::zeroed() };
 
     let mut index = 0;
     while index < NEEDLES_SIZE {
-        res[index] = BPoint(index as i32, index as i32);
+        res[index] = Point(index as i32, index as i32);
         index += 1;
     }
 
     res
 }
 
-fn new_data() -> Vec<BPoint> {
+fn new_data() -> Vec<Point> {
     vec![black_box(GOLDEN_NEEDLE); DATA_SIZE]
 }

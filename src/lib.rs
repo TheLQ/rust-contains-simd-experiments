@@ -2,24 +2,49 @@
 #![feature(slice_as_chunks)]
 // too noisy
 #![allow(unsafe_op_in_unsafe_fn)]
+
 use std::arch::x86_64::{
     __m256d, __m256i, _mm256_broadcast_sd, _mm256_cmpeq_epi64, _mm256_or_si256, _mm256_testz_si256,
 };
+use std::hint::black_box;
 use std::intrinsics::transmute;
+use std::simd::cmp::SimdPartialEq;
+use std::simd::{Mask, Simd};
+
+pub fn inner_main() {
+    let data = new_data();
+
+    let test = value_init();
+    // let test = value_not_exists();
+
+    let found = unsafe {
+        match 1 {
+            1 => contains_std(&data, test),
+            2 => contains_auto(&data, test),
+            3 => contains_portable(&data, test),
+            4 => contains_simd(&data, test),
+            5 => contains_simd_unrolled(&data, test),
+            _ => unimplemented!(),
+        }
+    };
+    println!("found {found}")
+}
 
 #[derive(Clone, PartialEq)]
-pub struct BPoint(pub i32, pub i32);
+pub struct Point(pub i32, pub i32);
 
+/// The Standard Library's auto-vectorized contains
 #[inline(never)]
-pub fn b_contains_native(input_raw: &[BPoint], needle_pos: BPoint) -> bool {
+pub fn contains_std<T: PartialEq>(input_raw: &[T], needle_pos: T) -> bool {
     input_raw.contains(&needle_pos)
 }
 
+/// The Standard Library's auto-vectorized contains but for Structs
 #[inline(never)]
-pub fn b_contains_auto(input_raw: &[BPoint], needle_pos: BPoint) -> bool {
+pub fn contains_auto(input_raw: &[Point], needle_pos: Point) -> bool {
     // Make our LANE_COUNT 4x the normal lane count (aiming for 128 bit vectors).
     // The compiler will nicely unroll it.
-    const LANE_COUNT: usize = 8 * (128 / (size_of::<BPoint>() * 8));
+    const LANE_COUNT: usize = 8 * (128 / (size_of::<Point>() * 8));
     // SIMD
     let mut chunks = input_raw.chunks_exact(LANE_COUNT);
     for chunk in &mut chunks {
@@ -27,13 +52,37 @@ pub fn b_contains_auto(input_raw: &[BPoint], needle_pos: BPoint) -> bool {
             return true;
         }
     }
-    // match contains_simd not handling remainder
+    // TODO: remainder handling
+    //chunks.remainder().iter().any(|x| *x == needle)
     false
 }
 
+/// Manually optimized Portable SIMD
 #[target_feature(enable = "avx2")]
 #[inline(never)]
-pub unsafe fn b_contains_simd(input_raw: &[BPoint], needle_pos: BPoint) -> bool {
+pub unsafe fn contains_portable(input_raw: &[Point], needle_pos: Point) -> bool {
+    const LANES: usize = 16;
+    let all_not_equal: Mask<i64, LANES> = Mask::splat(false);
+
+    let needle_f64: i64 = transmute(needle_pos);
+    let needle: Simd<i64, LANES> = Simd::splat(needle_f64);
+    let input: &[i64] = transmute(input_raw);
+
+    let (pre, registers, post) = input.as_simd::<LANES>();
+    for register in registers {
+        let cmp = register.simd_eq(needle);
+        if cmp != all_not_equal {
+            return true;
+        }
+    }
+    // todo: pre, post remainder handling
+    false
+}
+
+/// Manually optimized raw intrinsics
+#[target_feature(enable = "avx2")]
+#[inline(never)]
+pub unsafe fn contains_simd(input_raw: &[Point], needle_pos: Point) -> bool {
     let needle_f64: f64 = transmute(needle_pos);
     let needle: __m256d = _mm256_broadcast_sd(&needle_f64);
     let needle: __m256i = transmute(needle);
@@ -62,9 +111,10 @@ pub unsafe fn b_contains_simd(input_raw: &[BPoint], needle_pos: BPoint) -> bool 
     false
 }
 
+/// Manually optimized raw intrinsics unrolled 4 times for 16x4=64 wide chunk size
 #[target_feature(enable = "avx2")]
 #[inline(never)]
-pub unsafe fn b_contains_simd_ultra(input_raw: &[BPoint], needle_pos: BPoint) -> bool {
+pub unsafe fn contains_simd_unrolled(input_raw: &[Point], needle_pos: Point) -> bool {
     let needle_f64: f64 = transmute(needle_pos);
     let needle: __m256d = _mm256_broadcast_sd(&needle_f64);
     let needle: __m256i = transmute(needle);
@@ -140,4 +190,64 @@ pub unsafe fn b_contains_simd_ultra(input_raw: &[BPoint], needle_pos: BPoint) ->
     }
     // todo: chunk_remainder, pre, post remainder handling
     false
+}
+
+fn new_data() -> Vec<Point> {
+    vec![value_init().clone(); 9999]
+}
+
+/// black_box to avoid optimizing away to const tests
+fn value_init() -> Point {
+    Point(black_box(5), black_box(8))
+}
+
+/// black_box to avoid optimizing away to const tests
+fn value_not_exists() -> Point {
+    Point(black_box(5), black_box(253))
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        Point, contains_auto, contains_portable, contains_simd, contains_simd_unrolled,
+        contains_std, new_data, value_init, value_not_exists,
+    };
+
+    fn confirm_sanity(input: &[Point], value: Point, expected: bool) {
+        unsafe {
+            assert_eq!(contains_std(input, value.clone()), expected, "contains_std");
+            assert_eq!(
+                contains_auto(input, value.clone()),
+                expected,
+                "contains_auto"
+            );
+            assert_eq!(
+                contains_portable(input, value.clone()),
+                expected,
+                "contains_portable"
+            );
+            assert_eq!(
+                contains_simd(input, value.clone()),
+                expected,
+                "contains_simd"
+            );
+            assert_eq!(
+                contains_simd_unrolled(input, value),
+                expected,
+                "contains_simd_unrolled"
+            );
+        }
+    }
+
+    #[test]
+    fn test_found() {
+        let data = new_data();
+        confirm_sanity(&data, value_init(), true);
+    }
+
+    #[test]
+    fn test_not_found() {
+        let data = new_data();
+        confirm_sanity(&data, value_not_exists(), false);
+    }
 }
