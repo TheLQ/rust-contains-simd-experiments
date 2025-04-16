@@ -30,7 +30,7 @@ pub fn inner_main() {
     println!("found {found}")
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Point(pub i32, pub i32);
 
 /// The Standard Library's auto-vectorized contains
@@ -40,6 +40,7 @@ pub fn contains_std<T: PartialEq>(input_raw: &[T], needle_pos: T) -> bool {
 }
 
 /// The Standard Library's auto-vectorized contains but for Structs
+#[target_feature(enable = "avx2")]
 #[inline(never)]
 pub fn contains_auto(input_raw: &[Point], needle_pos: Point) -> bool {
     // Make our LANE_COUNT 4x the normal lane count (aiming for 128 bit vectors).
@@ -61,12 +62,13 @@ pub fn contains_auto(input_raw: &[Point], needle_pos: Point) -> bool {
 #[target_feature(enable = "avx2")]
 #[inline(never)]
 pub unsafe fn contains_portable(input_raw: &[Point], needle_pos: Point) -> bool {
-    const LANES: usize = 16;
+    // const LANES: usize = 16;
+    const LANES: usize = 8;
     let all_not_equal: Mask<i64, LANES> = Mask::splat(false);
 
-    let needle_f64: i64 = transmute(needle_pos);
-    let needle: Simd<i64, LANES> = Simd::splat(needle_f64);
-    let input: &[i64] = transmute(input_raw);
+    let needle_64: u64 = transmute(needle_pos);
+    let needle: Simd<u64, LANES> = Simd::splat(needle_64);
+    let input: &[u64] = transmute(input_raw);
 
     let (pre, registers, post) = input.as_simd::<LANES>();
     for register in registers {
@@ -83,8 +85,8 @@ pub unsafe fn contains_portable(input_raw: &[Point], needle_pos: Point) -> bool 
 #[target_feature(enable = "avx2")]
 #[inline(never)]
 pub unsafe fn contains_simd(input_raw: &[Point], needle_pos: Point) -> bool {
-    let needle_f64: f64 = transmute(needle_pos);
-    let needle: __m256d = _mm256_broadcast_sd(&needle_f64);
+    let needle_64: f64 = transmute(needle_pos);
+    let needle: __m256d = _mm256_broadcast_sd(&needle_64);
     let needle: __m256i = transmute(needle);
 
     let input: &[u64] = transmute(input_raw);
@@ -193,12 +195,18 @@ pub unsafe fn contains_simd_unrolled(input_raw: &[Point], needle_pos: Point) -> 
 }
 
 pub fn new_data() -> Vec<Point> {
-    vec![value_init().clone(); 9999]
+    const SIZE: usize = 16 * 4 * 125;
+    let mut data = Vec::new();
+    for i in 0..SIZE {
+        let i = i as i32;
+        data.push(Point(i, i * 2));
+    }
+    data
 }
 
 /// black_box to avoid optimizing away to const tests
 pub fn value_init() -> Point {
-    Point(black_box(5), black_box(8))
+    Point(black_box(5), black_box(10))
 }
 
 /// black_box to avoid optimizing away to const tests
@@ -212,32 +220,8 @@ mod test {
         Point, contains_auto, contains_portable, contains_simd, contains_simd_unrolled,
         contains_std, new_data, value_init, value_not_exists,
     };
-
-    fn confirm_sanity(input: &[Point], value: Point, expected: bool) {
-        unsafe {
-            assert_eq!(contains_std(input, value.clone()), expected, "contains_std");
-            assert_eq!(
-                contains_auto(input, value.clone()),
-                expected,
-                "contains_auto"
-            );
-            assert_eq!(
-                contains_portable(input, value.clone()),
-                expected,
-                "contains_portable"
-            );
-            assert_eq!(
-                contains_simd(input, value.clone()),
-                expected,
-                "contains_simd"
-            );
-            assert_eq!(
-                contains_simd_unrolled(input, value),
-                expected,
-                "contains_simd_unrolled"
-            );
-        }
-    }
+    use std::mem::transmute;
+    use std::simd::Simd;
 
     #[test]
     fn test_found() {
@@ -249,5 +233,59 @@ mod test {
     fn test_not_found() {
         let data = new_data();
         confirm_sanity(&data, value_not_exists(), false);
+    }
+
+    #[test]
+    fn test_found_all() {
+        let data = new_data();
+        for entry in testable_range(&data) {
+            confirm_sanity(&data, entry.clone(), true);
+        }
+    }
+
+    fn confirm_sanity(input: &[Point], value: Point, expected: bool) {
+        unsafe {
+            assert_eq!(
+                contains_std(input, value.clone()),
+                expected,
+                "contains_std {:?}",
+                value
+            );
+            assert_eq!(
+                contains_auto(input, value.clone()),
+                expected,
+                "contains_auto {:?}",
+                value
+            );
+            assert_eq!(
+                contains_portable(input, value.clone()),
+                expected,
+                "contains_portable {:?}",
+                value
+            );
+            assert_eq!(
+                contains_simd(input, value.clone()),
+                expected,
+                "contains_simd {:?}",
+                value
+            );
+            assert_eq!(
+                contains_simd_unrolled(input, value.clone()),
+                expected,
+                "contains_simd_unrolled {:?}",
+                value
+            );
+        }
+    }
+
+    fn testable_range(data_points: &[Point]) -> &[Point] {
+        const U64_IN_M256: usize = 4;
+        let data: &[u64] = unsafe { transmute(data_points) };
+        let (pre, simd, post) = data.as_simd::<U64_IN_M256>();
+
+        // assert_eq!(pre.len(), 2);
+        // assert_eq!(post.len(), 2);
+        let testable_range = &data_points[pre.len()..(data_points.len() - post.len() - 100)];
+        testable_range
     }
 }

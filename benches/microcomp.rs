@@ -74,7 +74,7 @@ fn test_simd_unrolled(input: &[Point]) -> u32 {
     result
 }
 
-const DATA_SIZE: usize = 4/*Points per m256*/ * 4/*simd chunks*/ * 4/*ultra chunks*/ * 8000; // 512k
+const DATA_SIZE: usize = 4/*Points per m256*/ * 4/*simd chunks*/ * 4/*ultra chunks*/ * 4000; // 512k
 
 const NEEDLES_SIZE: usize = 10_000;
 const NEEDLES: [Point; NEEDLES_SIZE] = new_needles();
